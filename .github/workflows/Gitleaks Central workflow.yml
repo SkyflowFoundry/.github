@@ -19,7 +19,7 @@ jobs:
       - name: Download gitleaks.toml
         run: |
           mkdir -p .github
-          curl -sSL -o .github/gitleaks.toml https://raw.githubusercontent.com/SkyflowFoundry/example/main/.github/gitleaks.toml
+          curl -sSL -o .github/gitleaks.toml https://raw.githubusercontent.com/SkyflowFoundry/.github/main/.github/gitleaks.toml
     
       - name: Download and install latest Gitleaks
         run: |
