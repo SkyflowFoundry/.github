@@ -2,7 +2,7 @@ name: Gitleaks Central workflow
 
 on:
   workflow_call:
-
+  
 permissions:
   issues: write
   pull-requests: write
@@ -15,53 +15,64 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-    
+
       - name: Download gitleaks.toml
         run: |
           mkdir -p .github
           curl -sSL -o .github/gitleaks.toml https://raw.githubusercontent.com/SkyflowFoundry/.github/main/.github/gitleaks.toml
-    
+
       - name: Download and install latest Gitleaks
         run: |
-          # Get the latest version number (e.g., 8.24.3 — no 'v' prefix)
           LATEST_VERSION=$(curl -s https://api.github.com/repos/gitleaks/gitleaks/releases/latest | jq -r .tag_name | sed 's/^v//')
-          echo "Latest Gitleaks version: $LATEST_VERSION"
-          
-          # Build the download URL for tar.gz (linux x64)
           DOWNLOAD_URL="https://github.com/gitleaks/gitleaks/releases/download/v${LATEST_VERSION}/gitleaks_${LATEST_VERSION}_linux_x64.tar.gz"
-          
-          # Download and extract
           curl -sSL "$DOWNLOAD_URL" -o gitleaks.tar.gz
           tar -xzf gitleaks.tar.gz
           chmod +x gitleaks
           sudo mv gitleaks /usr/local/bin
-          
-          # Verify
           gitleaks version
-          
+
       - name: Run Gitleaks with custom exit code 0
         run: |
           gitleaks git -v --config=.github/gitleaks.toml --exit-code=0 --report-format=json --report-path=gitleaks-results.json
-          
-      - name: Displaying the results
+
+      - name: Format and comment findings on PR
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          cat gitleaks-results.json
-          
-      - name: Flag the vulnerabilities and Comment on PR
-        run: |
-          # Read gitleaks results
-          FINDINGS=$(cat gitleaks-results.json)
-          # Check if findings exist
-          if [ "$(echo "$FINDINGS" | jq 'length')" -gt 0 ]; then
-            COMMENT="**Gitleaks Findings:** Vulnerabilities are found. Please resolve the issues before merging."
+          FINDINGS_JSON=$(cat gitleaks-results.json)
+          COUNT=$(echo "$FINDINGS_JSON" | jq 'length')
+          SHA="${{ github.event.pull_request.head.sha }}"
+          REPO="${{ github.repository }}"
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          MAX=10
+          if [ "$COUNT" -gt 0 ]; then
+            COMMENT="**🔐 Gitleaks Findings: $COUNT issue(s) detected**\n\n"
+            i=0
+            while [ "$i" -lt "$COUNT" ] && [ "$i" -lt "$MAX" ]; do
+              ITEM=$(echo "$FINDINGS_JSON" | jq ".[$i]")
+              RULE=$(echo "$ITEM" | jq -r '.RuleID')
+              DESC=$(echo "$ITEM" | jq -r '.Description')
+              FILE=$(echo "$ITEM" | jq -r '.File')
+              LINE=$(echo "$ITEM" | jq -r '.Line')
+              LINK="https://github.com/$REPO/blob/$SHA/$FILE#L$LINE"
+              SECRET_MASKED="**********"
+              COMMENT+="🔸 **Rule**: \`$RULE\`\n"
+              COMMENT+="📄 **File**: \`$FILE:$LINE\`\n"
+              COMMENT+="📝 **Description**: $DESC\n"
+              COMMENT+="🔑 **Secret**: \`$SECRET_MASKED\`\n"
+              COMMENT+="🔗 **Path**: [$FILE:$LINE]($LINK)\n\n"
+              i=$((i + 1))
+            done
+            if [ "$COUNT" -gt "$MAX" ]; then
+              COMMENT+="...and more. Only showing first $MAX findings.\n"
+            fi
           else
-            COMMENT="**Gitleaks Findings:** No issues were found. Good to merge! However, please check and address any other existing issues."
+            COMMENT="✅ **Gitleaks Findings:** No secrets detected. Safe to proceed!"
           fi
-          # Escape newline characters for JSON
-          COMMENT=${COMMENT//$'\n'/\\n}
-          # Post the comment on the PR using the GitHub API
+          # Escape newlines for GitHub API
+          COMMENT=$(echo "$COMMENT" | sed ':a;N;$!ba;s/\n/\\n/g')
           curl -X POST \
-            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Authorization: token $GITHUB_TOKEN" \
             -H "Accept: application/vnd.github.v3+json" \
             -d "{\"body\":\"$COMMENT\"}" \
             "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments"
