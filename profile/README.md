@@ -3,8 +3,7 @@
 A community space for exploring the possibilities of privacy engineering with Skyflow.
 
 > [!WARNING]  
-> This is a home for experiments, demos, hackathon projects, and more.
-> Nothing in SkyflowFoundry is officially supported by Skyflow.
+> This is a home for experiments, demos, hackathon projects, and more. Nothing here is officially supported.
 
 ## Guide
 
