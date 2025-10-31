@@ -2,6 +2,9 @@
 
 A community space for exploring the possibilities of privacy engineering with Skyflow.
 
+> [!WARNING]  
+> This is a home for experiments, demos, hackathon projects, and more. Nothing in SkyflowFoundry is officially supported by Skyflow.
+
 ## Guide
 
 Have a look around at the sample projects and walkthroughs available in this organization. Everything here is open source and officially unsupported, so be mindful before deploying to production. And when you're ready, contribute some code by checking out the issues on a repo and see if you can help.
